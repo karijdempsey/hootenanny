@@ -83,7 +83,7 @@ public:
       boost::shared_ptr<OsmMap> map2(new OsmMap(map->getProjection()));
 
       boost::shared_ptr<OGRSpatialReference> srs =
-          MapProjector::createAeacProjection(CalculateBoundsVisitor::getBounds(map));
+          MapProjector::createAeacProjection(CalculateMapBoundsVisitor::getBounds(map));
       MapProjector::project(map, srs);
 
       stringstream ss;

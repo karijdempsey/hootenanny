@@ -8,10 +8,10 @@ AC_DEFUN([NODEJS_INIT],[
 
     AC_LANG_PUSH([C++])
     CPPFLAGS="-I/usr/include/nodejs -I/usr/include/nodejs/deps/uv/include ${saved_CPPFLAGS}"
-    AC_CHECK_HEADERS([nodejs/src/node.h], [hootFoundNjsHeaders=yes; break;])
+    AC_CHECK_HEADERS([nodejs/src/node.h], [hootFoundNjsHeaders=yes; saved_CPPFLAGS=$CPPFLAGS; break;])
 
     CPPFLAGS="-I/usr/include/nodejs ${saved_CPPFLAGS}"
-    AC_CHECK_HEADERS([nodejs/node.h], [hootFoundNjsHeaders=yes; break;])
+    AC_CHECK_HEADERS([nodejs/node.h], [hootFoundNjsHeaders=yes; saved_CPPFLAGS=$CPPFLAGS; break;])
 
     CPPFLAGS="-I/usr/include/node -std=c++11 ${saved_CPPFLAGS}"
     AC_CHECK_HEADERS([node/node.h], [hootFoundNjsHeaders=yes; saved_CPPFLAGS=$CPPFLAGS; break;],[],[#include <v8.h>])

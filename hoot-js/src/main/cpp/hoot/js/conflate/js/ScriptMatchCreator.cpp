@@ -306,7 +306,7 @@ public:
 
       // Only index elements that have Status::Unknown2 and
       boost::shared_ptr<StatusCriterion> pC1(new StatusCriterion(Status::Unknown2));
-      boost::boost::function<bool (ConstElementPtr e)> f =
+      boost::function<bool (ConstElementPtr e)> f =
         boost::bind(&ScriptMatchVisitor::isMatchCandidate, this, _1);
       boost::shared_ptr<ArbitraryCriterion> pC2(new ArbitraryCriterion(f));
       boost::shared_ptr<ChainCriterion> pCC(new ChainCriterion());

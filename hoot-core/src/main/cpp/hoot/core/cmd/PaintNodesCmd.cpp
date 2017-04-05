@@ -38,7 +38,7 @@
 #include <hoot/core/util/OpenCv.h>
 #undef int64
 
-#include <hoot/core/visitors/CalculateBoundsVisitor.h>
+#include <hoot/core/visitors/CalculateMapBoundsVisitor.h>
 
 // Qt
 #include <QImage>

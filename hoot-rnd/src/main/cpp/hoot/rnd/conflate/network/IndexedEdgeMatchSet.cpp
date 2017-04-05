@@ -82,12 +82,7 @@ void IndexedEdgeMatchSet::_addVertexToMatchMapping(ConstEdgeStringPtr str,
 
 boost::shared_ptr<IndexedEdgeLinks> IndexedEdgeMatchSet::calculateEdgeLinks()
 {
-<<<<<<< HEAD
   boost::shared_ptr<IndexedEdgeLinks> result(new IndexedEdgeLinks());
-
-=======
-  shared_ptr<IndexedEdgeLinks> result(new IndexedEdgeLinks());
->>>>>>> origin/develop
   for (QHash<ConstEdgeMatchPtr, double>::const_iterator it = getAllMatches().begin();
        it != getAllMatches().end(); ++it)
   {
