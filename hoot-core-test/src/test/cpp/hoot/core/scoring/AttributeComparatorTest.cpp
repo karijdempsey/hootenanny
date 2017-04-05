@@ -28,7 +28,7 @@
 
 // Hoot
 #include <hoot/core/OsmMap.h>
-#include <hoot/core/io/OsmReader.h>
+#include <hoot/core/io/OsmXmlReader.h>
 #include <hoot/core/schema/OsmSchema.h>
 #include <hoot/core/scoring/AttributeComparator.h>
 
@@ -66,7 +66,7 @@ public:
 
   void runTest()
   {
-    OsmReader reader;
+    OsmXmlReader reader;
 
     Tgs::Random::instance()->seed(0);
 

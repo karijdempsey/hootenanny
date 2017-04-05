@@ -22,20 +22,21 @@
  * This will properly maintain the copyright information. DigitalGlobe
  * copyrights will be updated automatically.
  *
- * @copyright Copyright (C) 2015, 2016 DigitalGlobe (http://www.digitalglobe.com/)
+ * @copyright Copyright (C) 2015, 2016, 2017 DigitalGlobe (http://www.digitalglobe.com/)
  */
 
 #include "JavaScriptTranslator.h"
 
 // hoot
-#include <hoot/core/Exception.h>
-#include <hoot/core/Factory.h>
+#include <hoot/core/util/Exception.h>
+#include <hoot/core/util/Factory.h>
 #include <hoot/core/elements/ElementType.h>
 #include <hoot/core/elements/Tags.h>
 #include <hoot/core/io/schema/Feature.h>
 #include <hoot/core/io/schema/FeatureDefinition.h>
 #include <hoot/core/io/schema/DoubleFieldDefinition.h>
 #include <hoot/core/io/schema/IntegerFieldDefinition.h>
+#include <hoot/core/io/schema/LongIntegerFieldDefinition.h>
 #include <hoot/core/io/schema/StringFieldDefinition.h>
 #include <hoot/core/io/schema/Layer.h>
 #include <hoot/core/io/schema/Schema.h>
@@ -64,6 +65,8 @@ using namespace v8;
 
 namespace hoot
 {
+
+unsigned int JavaScriptTranslator::logWarnCount = 0;
 
 HOOT_FACTORY_REGISTER(ScriptTranslator, JavaScriptTranslator)
 
@@ -406,9 +409,6 @@ boost::shared_ptr<const Schema> JavaScriptTranslator::getOgrOutputSchema()
     }
   }
 
-//  LOG_WARN("Returning from GetOgrOutputSchema")
-//  boost::shared_ptr<Schema> schema(new Schema());
-
   return _schema;
 }
 
@@ -437,7 +437,15 @@ void JavaScriptTranslator::_parseEnumerations(DoubleFieldDefinition* fd, QVarian
 
     if (fd->hasEnumeratedValue(v))
     {
-      LOG_WARN("Enumerated value repeated in enumerations table: " << v);
+      if (logWarnCount < ConfigOptions().getLogWarnMessageLimit())
+      {
+        LOG_WARN("Enumerated value repeated in enumerations table: " << v);
+      }
+      else if (logWarnCount == ConfigOptions().getLogWarnMessageLimit())
+      {
+        LOG_WARN(className() << ": " << Log::LOG_WARN_LIMIT_REACHED_MESSAGE);
+      }
+      logWarnCount++;
     }
     else
     {
@@ -446,7 +454,7 @@ void JavaScriptTranslator::_parseEnumerations(DoubleFieldDefinition* fd, QVarian
   }
 }
 
-void JavaScriptTranslator::_parseEnumerations(IntegerFieldDefinition* fd, QVariant& enumerations)
+void JavaScriptTranslator::_parseEnumerations(IntegerFieldDefinition *fd, QVariant& enumerations)
   const
 {
   if (enumerations.canConvert(QVariant::List) == false)
@@ -471,7 +479,57 @@ void JavaScriptTranslator::_parseEnumerations(IntegerFieldDefinition* fd, QVaria
 
     if (fd->hasEnumeratedValue(v))
     {
-      LOG_WARN("Enumerated value repeated in enumerations table: " << v);
+      if (logWarnCount < ConfigOptions().getLogWarnMessageLimit())
+      {
+        LOG_WARN("Enumerated value repeated in enumerations table: " << v);
+      }
+      else if (logWarnCount == ConfigOptions().getLogWarnMessageLimit())
+      {
+        LOG_WARN(className() << ": " << Log::LOG_WARN_LIMIT_REACHED_MESSAGE);
+      }
+      logWarnCount++;
+    }
+    else
+    {
+      fd->addEnumeratedValue(v);
+    }
+  }
+}
+
+void JavaScriptTranslator::_parseEnumerations(LongIntegerFieldDefinition* fd, QVariant& enumerations)
+  const
+{
+  if (enumerations.canConvert(QVariant::List) == false)
+  {
+    throw HootException("Expected enumerations to be an array of maps.");
+  }
+  QVariantList vl = enumerations.toList();
+
+  for (int i = 0; i < vl.size(); i++)
+  {
+    if (vl[i].canConvert(QVariant::Map) == false)
+    {
+      throw HootException("Expected enumerations to be an array of maps.");
+    }
+    QVariantMap vm = vl[i].toMap();
+
+    if (vm["value"].canConvert(QVariant::LongLong) == false)
+    {
+      throw HootException("Expected each enumeration map to contain a valid value.");
+    }
+    int v = vm["value"].toLongLong();
+
+    if (fd->hasEnumeratedValue(v))
+    {
+      if (logWarnCount < ConfigOptions().getLogWarnMessageLimit())
+      {
+        LOG_WARN("Enumerated value repeated in enumerations table: " << v);
+      }
+      else if (logWarnCount == ConfigOptions().getLogWarnMessageLimit())
+      {
+        LOG_WARN(className() << ": " << Log::LOG_WARN_LIMIT_REACHED_MESSAGE);
+      }
+      logWarnCount++;
     }
     else
     {
@@ -496,6 +554,7 @@ boost::shared_ptr<FieldDefinition> JavaScriptTranslator::_parseFieldDefinition(Q
     throw HootException("Error parsing type in column.");
   }
   QString type = map["type"].toString().toLower();
+
   if (type == "string")
   {
     StringFieldDefinition* fd = new StringFieldDefinition();
@@ -547,7 +606,7 @@ boost::shared_ptr<FieldDefinition> JavaScriptTranslator::_parseFieldDefinition(Q
       _parseEnumerations(fd, map["enumerations"]);
     }
   }
-  else if (type == "enumeration" || type == "long integer" || type == "integer")
+  else if (type == "enumeration" || type == "integer")
   {
     IntegerFieldDefinition* fd = new IntegerFieldDefinition();
     result.reset(fd);
@@ -572,6 +631,35 @@ boost::shared_ptr<FieldDefinition> JavaScriptTranslator::_parseFieldDefinition(Q
       fd->setMinValue(_toInt32(map["minimum"]));
     }
 
+    if (map.contains("enumerations"))
+    {
+      _parseEnumerations(fd, map["enumerations"]);
+    }
+  }
+  else if (type == "long integer")
+  {
+    LongIntegerFieldDefinition* fd = new LongIntegerFieldDefinition();
+    result.reset(fd);
+
+    if (map.contains("defValue"))
+    {
+      if (map["defValue"].isValid() == false)
+      {
+        fd->setDefaultIsNull(true);
+      }
+      else
+      {
+        fd->setDefaultValue(_toInt64(map["defValue"]));
+      }
+    }
+    if (map.contains("maximum"))
+    {
+      fd->setMaxValue(_toInt64(map["maximum"]));
+    }
+    if (map.contains("minimum"))
+    {
+      fd->setMinValue(_toInt64(map["minimum"]));
+    }
     if (map.contains("enumerations"))
     {
       _parseEnumerations(fd, map["enumerations"]);
@@ -747,8 +835,6 @@ vector<Tags> JavaScriptTranslator::translateToOgrTags(Tags& tags, ElementType el
 QVariantList JavaScriptTranslator::_translateToOgrVariants(Tags& tags,
   ElementType elementType, geos::geom::GeometryTypeId geometryType)
 {
-  //LOG_DEBUG("Started translateToOgr");
-
   _tags = &tags;
 
   HandleScope handleScope;

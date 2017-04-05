@@ -342,7 +342,7 @@ tds61 = {
         }
         else
         {
-            hoot.logVerbose('Validate: No attrList for ' + attrs.F_CODE + ' ' + geometryType);
+            hoot.logTrace('Validate: No attrList for ' + attrs.F_CODE + ' ' + geometryType);
         } // End Drop attrs
 
         // Repack the OTH field
@@ -394,7 +394,7 @@ tds61 = {
                     // Set the offending enumerated value to the default value
                     attrs[enumName] = feature.columns[i].defValue;
 
-                    hoot.logVerbose('Validate: Enumerated Value: ' + attrValue + ' not found in ' + enumName + ' Setting ' + enumName + ' to its default value (' + feature.columns[i].defValue + ')');
+                    hoot.logTrace('Validate: Enumerated Value: ' + attrValue + ' not found in ' + enumName + ' Setting ' + enumName + ' to its default value (' + feature.columns[i].defValue + ')');
 
                     attrs.ZI006_MEM = translate.appendValue(attrs.ZI006_MEM,othVal,';');
                 }
@@ -403,7 +403,7 @@ tds61 = {
                     // Set the offending enumerated value to the "other" value
                     attrs[enumName] = '999';
 
-                    hoot.logVerbose('Validate: Enumerated Value: ' + attrValue + ' not found in ' + enumName + ' Setting OTH and ' + enumName + ' to Other (999)');
+                    hoot.logTrace('Validate: Enumerated Value: ' + attrValue + ' not found in ' + enumName + ' Setting OTH and ' + enumName + ' to Other (999)');
 
                     attrs.OTH = translate.appendValue(attrs.OTH,othVal,' ');
                 }
@@ -1729,6 +1729,65 @@ tds61 = {
             attrs.UFI = createUuid().replace('{','').replace('}','');
         }
 
+        // Add Weather Restrictions to transportation features
+        if (['AP010','AP030','AP050'].indexOf(attrs.FCODE > -1) && !attrs.ZI016_WTC )
+        {
+            switch (tags.highway)
+            {
+                case 'motorway':
+                case 'motorway_link':
+                case 'trunk':
+                case 'trunk_link':
+                case 'primary':
+                case 'primary_link':
+                case 'secondary':
+                case 'secondary_link':
+                case 'tertiary':
+                case 'tertiary_link':
+                case 'residential':
+                case 'unclassified':
+                    attrs.ZI016_WTC = '1'; // All weather
+                    break;
+
+                case 'track':
+                    attrs.ZI016_WTC = '4'; // Limited All-weather
+                    break;
+
+                case 'path':
+                    attrs.ZI016_WTC = '2'; // Fair Weather
+                    break;
+            }
+
+            // Use the road surface to possibly override the classification.
+            // We are assumeing that unpaved roads are Fair Weather only
+            switch (attrs.ZI016_ROC)
+            {
+                case undefined: // Break early if no value
+                    break;
+
+                case '1': // Unimproved
+                    attrs.ZI016_WTC = '2'; // Fair Weather
+                    break;
+
+                case '2': // Stabilized Earth
+                case '4': // Gravel
+                    attrs.ZI016_WTC = '4'; // Limited All-weather
+                    break;
+
+                case '17': // Ice
+                case '18': // Snow
+                    attrs.ZI016_WTC = '3'; // Winter Only
+                    break;
+
+                case '999': // Other
+                    attrs.ZI016_WTC = '-999999'; // No Information
+                    break;
+
+                default:
+                    attrs.ZI016_WTC = '1' // All Weather
+            }
+        }
+
         // Custom Road rules
         // - Fix the "highway=" stuff that cant be done in the one2one rules
         if (attrs.F_CODE == 'AP030' || attrs.F_CODE == 'AQ075') // Road & Ice Road
@@ -1920,7 +1979,7 @@ tds61 = {
             }
             else
             {
-                hoot.logVerbose('Translation for F_CODE ' + attrs.F_CODE + ' not found');
+                hoot.logTrace('Translation for F_CODE ' + attrs.F_CODE + ' not found');
             }
         }
 
@@ -2088,7 +2147,7 @@ tds61 = {
                 }
             }
 
-            hoot.logVerbose('FCODE and Geometry: ' + gFcode + ' is not in the schema');
+            hoot.logTrace('FCODE and Geometry: ' + gFcode + ' is not in the schema');
 
             tableName = 'o2s_' + geometryType.toString().charAt(0);
 
@@ -2112,7 +2171,7 @@ tds61 = {
                 // Not good. Will fix with the rewrite of the tag splitting code
                 if (str.length > 1012)
                 {
-                    hoot.logVerbose('o2s tags truncated to fit in available space.');
+                    hoot.logTrace('o2s tags truncated to fit in available space.');
                     str = str.substring(0,1012);
                 }
 

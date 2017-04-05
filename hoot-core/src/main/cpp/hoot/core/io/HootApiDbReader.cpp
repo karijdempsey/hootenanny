@@ -22,12 +22,12 @@
  * This will properly maintain the copyright information. DigitalGlobe
  * copyrights will be updated automatically.
  *
- * @copyright Copyright (C) 2016 DigitalGlobe (http://www.digitalglobe.com/)
+ * @copyright Copyright (C) 2016, 2017 DigitalGlobe (http://www.digitalglobe.com/)
  */
 #include "HootApiDbReader.h"
 
 // hoot
-#include <hoot/core/Factory.h>
+#include <hoot/core/util/Factory.h>
 #include <hoot/core/util/Settings.h>
 #include <hoot/core/util/OsmUtils.h>
 #include <hoot/core/elements/ElementId.h>
@@ -46,21 +46,12 @@ HOOT_FACTORY_REGISTER(OsmMapReader, HootApiDbReader)
 HootApiDbReader::HootApiDbReader() :
 _database(new HootApiDb())
 {
-  LOG_VART(_useDataSourceIds);
   setConfiguration(conf());
 }
 
 HootApiDbReader::~HootApiDbReader()
 {
   close();
-}
-
-void HootApiDbReader::setBoundingBox(const QString bbox)
-{
-  if (!bbox.trimmed().isEmpty())
-  {
-    _bounds = GeometryUtils::envelopeFromConfigString(bbox);
-  }
 }
 
 Envelope HootApiDbReader::calculateEnvelope() const
@@ -147,11 +138,9 @@ void  HootApiDbReader::initializePartial()
 
 void HootApiDbReader::read(boost::shared_ptr<OsmMap> map)
 {
-  if (_bounds.isNull() ||
-      (_bounds.getMinX() == -180.0 && _bounds.getMinY() == -90.0 && _bounds.getMaxX() == 180.0
-       && _bounds.getMaxY() == 90.0))
+  if (!_hasBounds())
   {
-    LOG_INFO("Executing Hoot API read query...");
+    LOG_DEBUG("Executing Hoot API read query...");
     for (int ctr = ElementType::Node; ctr != ElementType::Unknown; ctr++)
     {
       _read(map, static_cast<ElementType::Type>(ctr));
@@ -159,8 +148,17 @@ void HootApiDbReader::read(boost::shared_ptr<OsmMap> map)
   }
   else
   {
-    LOG_INFO("Executing Hoot API bounded read query with bounds " << _bounds.toString() << "...");
-    _readByBounds(map, _bounds);
+    Envelope bounds;
+    if (!_overrideBounds.isNull())
+    {
+      bounds = _overrideBounds;
+    }
+    else
+    {
+      bounds = _bounds;
+    }
+    LOG_DEBUG("Executing Hoot API bounded read query with bounds " << bounds.toString() << "...");
+    _readByBounds(map, bounds);
   }
 }
 
@@ -189,11 +187,11 @@ void HootApiDbReader::_read(boost::shared_ptr<OsmMap> map, const ElementType& el
     }
   }
 
-  LOG_DEBUG("Select all query read " << elementCount << " " << elementType.toString() << " elements.");
-  LOG_DEBUG("Current map:");
-  LOG_VARD(map->getNodeMap().size());
+  LOG_DEBUG(
+    "Select all query read " << elementCount << " " << elementType.toString() << " elements.");
+  LOG_VARD(map->getNodes().size());
   LOG_VARD(map->getWays().size());
-  LOG_VARD(map->getRelationMap().size());
+  LOG_VARD(map->getRelations().size());
 }
 
 boost::shared_ptr<Element> HootApiDbReader::_getElementUsingIterator()
@@ -313,7 +311,7 @@ boost::shared_ptr<Element> HootApiDbReader::_resultToElement(QSqlQuery& resultIt
   }
 }
 
-boost::shared_ptr<Node> HootApiDbReader::_resultToNode(const QSqlQuery& resultIterator, OsmMap& map)
+NodePtr HootApiDbReader::_resultToNode(const QSqlQuery& resultIterator, OsmMap& map)
 {
   long nodeId = _mapElementId(map, ElementId::node(resultIterator.value(0).toLongLong())).getId();
   LOG_TRACE("Reading node with ID: " << nodeId);
@@ -324,7 +322,7 @@ boost::shared_ptr<Node> HootApiDbReader::_resultToNode(const QSqlQuery& resultIt
       nodeId,
       resultIterator.value(ApiDb::NODES_LONGITUDE).toDouble(),
       resultIterator.value(ApiDb::NODES_LATITUDE).toDouble(),
-      ConfigOptions().getCircularErrorDefaultValue(),
+      -1,
       resultIterator.value(ApiDb::NODES_CHANGESET).toLongLong(),
       resultIterator.value(ApiDb::NODES_VERSION).toLongLong(),
       OsmUtils::fromTimeString(
@@ -338,11 +336,10 @@ boost::shared_ptr<Node> HootApiDbReader::_resultToNode(const QSqlQuery& resultIt
 //    if (_status != Status::Invalid) { node->setStatus(_status); }
   if (! ConfigOptions().getReaderKeepFileStatus() && _status != Status::Invalid) { node->setStatus(_status); }
 
-  //LOG_VART(node);
   return node;
 }
 
-boost::shared_ptr<Way> HootApiDbReader::_resultToWay(const QSqlQuery& resultIterator, OsmMap& map)
+WayPtr HootApiDbReader::_resultToWay(const QSqlQuery& resultIterator, OsmMap& map)
 {
   const long wayId = resultIterator.value(0).toLongLong();
   const long newWayId = _mapElementId(map, ElementId::way(wayId)).getId();
@@ -352,7 +349,7 @@ boost::shared_ptr<Way> HootApiDbReader::_resultToWay(const QSqlQuery& resultIter
     new Way(
       _status,
       newWayId,
-      ConfigOptions().getCircularErrorDefaultValue(),
+      -1,
       resultIterator.value(ApiDb::WAYS_CHANGESET).toLongLong(),
       resultIterator.value(ApiDb::WAYS_VERSION).toLongLong(),
       OsmUtils::fromTimeString(
@@ -372,12 +369,10 @@ boost::shared_ptr<Way> HootApiDbReader::_resultToWay(const QSqlQuery& resultIter
   }
   way->addNodes(nodeIds);
 
-  //LOG_VART(way);
   return way;
 }
 
-boost::shared_ptr<Relation> HootApiDbReader::_resultToRelation(const QSqlQuery& resultIterator,
-                                                        const OsmMap& map)
+RelationPtr HootApiDbReader::_resultToRelation(const QSqlQuery& resultIterator, const OsmMap& map)
 {
   const long relationId = resultIterator.value(0).toLongLong();
   const long newRelationId = _mapElementId(map, ElementId::relation(relationId)).getId();
@@ -387,7 +382,7 @@ boost::shared_ptr<Relation> HootApiDbReader::_resultToRelation(const QSqlQuery& 
     new Relation(
       _status,
       newRelationId,
-      ConfigOptions().getCircularErrorDefaultValue(),
+      -1,
       "",/*"collection"*/ //services db doesn't support relation "type" yet
       resultIterator.value(ApiDb::RELATIONS_CHANGESET).toLongLong(),
       resultIterator.value(ApiDb::RELATIONS_VERSION).toLongLong(),
@@ -407,7 +402,6 @@ boost::shared_ptr<Relation> HootApiDbReader::_resultToRelation(const QSqlQuery& 
   }
   relation->setMembers(members);
 
-  //LOG_VART(relation);
   return relation;
 }
 
@@ -417,6 +411,7 @@ void HootApiDbReader::setConfiguration(const Settings& conf)
   setMaxElementsPerMap(configOptions.getMaxElementsPerPartialMap());
   setUserEmail(configOptions.getApiDbEmail());
   setBoundingBox(configOptions.getConvertBoundingBox());
+  setOverrideBoundingBox(configOptions.getConvertBoundingBoxHootApiDatabase());
 }
 
 boost::shared_ptr<OGRSpatialReference> HootApiDbReader::getProjection() const
@@ -429,6 +424,5 @@ boost::shared_ptr<OGRSpatialReference> HootApiDbReader::getProjection() const
 
   return wgs84;
 }
-
 
 }

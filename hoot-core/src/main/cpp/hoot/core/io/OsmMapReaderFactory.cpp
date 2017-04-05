@@ -22,12 +22,12 @@
  * This will properly maintain the copyright information. DigitalGlobe
  * copyrights will be updated automatically.
  *
- * @copyright Copyright (C) 2015, 2016 DigitalGlobe (http://www.digitalglobe.com/)
+ * @copyright Copyright (C) 2015, 2016, 2017 DigitalGlobe (http://www.digitalglobe.com/)
  */
 #include "OsmMapReaderFactory.h"
 
 // hoot
-#include <hoot/core/Factory.h>
+#include <hoot/core/util/Factory.h>
 #include <hoot/core/io/OsmMapReader.h>
 #include <hoot/core/io/PartialOsmMapReader.h>
 #include <hoot/core/io/ElementInputStream.h>
@@ -50,22 +50,6 @@ OsmMapReaderFactory& OsmMapReaderFactory::getInstance()
     _theInstance.reset(new OsmMapReaderFactory());
   }
   return *_theInstance;
-}
-
-bool OsmMapReaderFactory::hasReader(QString url)
-{
-  vector<std::string> names =
-    Factory::getInstance().getObjectNamesByBase(OsmMapReader::className());
-  bool result = false;
-  for (size_t i = 0; i < names.size() && !result; ++i)
-  {
-    boost::shared_ptr<OsmMapReader> reader(Factory::getInstance().constructObject<OsmMapReader>(names[i]));
-    if (reader->isSupported(url))
-    {
-      result = true;
-    }
-  }
-  return result;
 }
 
 bool OsmMapReaderFactory::hasElementInputStream(QString url)
@@ -148,6 +132,7 @@ boost::shared_ptr<OsmMapReader> OsmMapReaderFactory::createReader(QString url, b
 void OsmMapReaderFactory::read(boost::shared_ptr<OsmMap> map, QString url, bool useDataSourceIds,
                                Status defaultStatus)
 {
+  LOG_INFO("Loading map from " << url << "...");
   boost::shared_ptr<OsmMapReader> reader =
     getInstance().createReader(url, useDataSourceIds, defaultStatus);
   reader->open(url);

@@ -22,7 +22,7 @@
  * This will properly maintain the copyright information. DigitalGlobe
  * copyrights will be updated automatically.
  *
- * @copyright Copyright (C) 2015, 2016 DigitalGlobe (http://www.digitalglobe.com/)
+ * @copyright Copyright (C) 2015, 2016, 2017 DigitalGlobe (http://www.digitalglobe.com/)
  */
 #include "BuildingMerger.h"
 
@@ -36,7 +36,10 @@
 #include <hoot/core/schema/TagMergerFactory.h>
 #include <hoot/core/schema/OverwriteTagMerger.h>
 #include <hoot/core/util/MetadataTags.h>
-#include <hoot/core/visitors/CountNodesVisitor.h>
+#include <hoot/core/schema/OsmSchema.h>
+#include <hoot/core/visitors/FilteredVisitor.h>
+#include <hoot/core/visitors/ElementCountVisitor.h>
+#include <hoot/core/filters/ElementTypeCriterion.h>
 
 namespace hoot
 {
@@ -93,24 +96,27 @@ void BuildingMerger::apply(const OsmMapPtr& map,
   }
   if (firstPairs.size() > 1 && secondPairs.size() > 1) //it is many to many
   {
-    QString note = "Merging multiple buildings from each data source is error prone and requires a human eye.";
+    QString note =
+      "Merging multiple buildings from each data source is error prone and requires a human eye.";
     ReviewMarker::mark(map, combined, note, "Building", 1);
   }
   else
   {
     // use node count as a surrogate for complexity of the geometry.
-    CountNodesVisitor count1;
     boost::shared_ptr<Element> e1 = _buildBuilding1(map);
-    e1->visitRo(*map, count1);
+    const int nodeCount1 =
+      (int)FilteredVisitor::getStat(
+        new ElementTypeCriterion(ElementType::Node), new ElementCountVisitor(), map, e1);
 
-    CountNodesVisitor count2;
     boost::shared_ptr<Element> e2 = _buildBuilding2(map);
-    e2->visitRo(*map, count2);
+    const int nodeCount2 =
+      (int)FilteredVisitor::getStat(
+        new ElementTypeCriterion(ElementType::Node), new ElementCountVisitor(), map, e2);
 
     boost::shared_ptr<Element> keeper;
     boost::shared_ptr<Element> scrap;
     // keep the more complex building geometry.
-    if (count1.getCount() >= count2.getCount())
+    if (nodeCount1 >= nodeCount2)
     {
       keeper = e1;
       scrap = e2;

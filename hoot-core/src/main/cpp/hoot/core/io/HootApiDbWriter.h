@@ -22,7 +22,7 @@
  * This will properly maintain the copyright information. DigitalGlobe
  * copyrights will be updated automatically.
  *
- * @copyright Copyright (C) 2016 DigitalGlobe (http://www.digitalglobe.com/)
+ * @copyright Copyright (C) 2016, 2017 DigitalGlobe (http://www.digitalglobe.com/)
  */
 #ifndef HOOTAPIDBWRITER_H
 #define HOOTAPIDBWRITER_H
@@ -66,6 +66,12 @@ public:
   void setCreateUser(bool createIfNotFound) { _createUserIfNotFound = createIfNotFound; }
 
   void setOverwriteMap(bool overwriteMap) { _overwriteMap = overwriteMap; }
+
+  void setIncludeDebug(bool includeDebug) { _includeDebug = includeDebug; }
+
+  void setTextStatus(bool textStatus) { _textStatus = textStatus; }
+
+  void setIncludeCircularError(bool includeCircularError) { _includeCircularError = includeCircularError; }
 
   /**
    * If set to true (the default) then all IDs are remapped into new IDs. This is appropriate if
@@ -126,6 +132,10 @@ private:
   bool _createUserIfNotFound;
   bool _overwriteMap;
   QString _userEmail;
+  bool _includeDebug;
+  bool _includeIds;
+  bool _textStatus;
+  bool _includeCircularError;
 
   bool _open;
 

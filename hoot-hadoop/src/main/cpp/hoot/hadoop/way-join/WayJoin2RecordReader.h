@@ -20,11 +20,6 @@
 // Boost
 #include <boost/shared_ptr.hpp>
 
-// Hootenanny
-#include <hoot/core/OsmMap.h>
-#include <hoot/hadoop/PbfInputSplit.h>
-#include <hoot/hadoop/PbfRecordReader.h>
-
 // Pretty Pipes
 #include <pp/io/CppSeqFileRecordReader.h>
 #include <pp/io/FileInputSplit.h>
@@ -36,6 +31,10 @@
 
 namespace hoot
 {
+class PbfInputSplit;
+class PbfRecordReader;
+class OsmMap;
+
 using namespace boost;
 
 class WayJoin2RecordReader : public pp::RecordReader
@@ -70,7 +69,7 @@ private:
   const pp::FileInputSplit* _csqSplit;
   const PbfInputSplit* _pbfSplit;
   boost::shared_ptr<pp::CppSeqFileRecordReader> _csqReader;
-  boost::shared_ptr<PbfRecordReader> _pbfReader;
+  boost::shared_ptr<PbfRecordReader> _OsmPbfReader;
 };
 
 
